@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { motion } from 'motion/react';
-import { ShoppingCart, User, Menu, LogOut, Shield } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { ShoppingCart, User, Menu, LogOut, Shield, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
 import { useSiteSettings } from '../../hooks/useSiteSettings';
@@ -12,6 +12,7 @@ export function Navbar() {
   const { user, profile, isAdmin, signOut } = useAuth();
   const { totalItems } = useCart();
   const { value: navSettings } = useSiteSettings('navbar');
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const links = [
     { name: 'Accueil', path: '/' },
@@ -113,11 +114,82 @@ export function Navbar() {
             </Link>
           )}
 
-          <button className="md:hidden p-2 text-white">
-            <Menu className="w-6 h-6" />
+          <button
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            className="md:hidden p-2 text-white hover:text-[#D4AF37] transition-colors"
+          >
+            {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
         </div>
       </div>
+
+      {/* Mobile Menu Overlay */}
+      <AnimatePresence>
+        {isMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="md:hidden bg-[#111111] border-b border-white/10 overflow-hidden"
+          >
+            <div className="flex flex-col p-6 space-y-6">
+              {links.map((link) => (
+                <Link
+                  key={link.path}
+                  to={link.path}
+                  onClick={() => setIsMenuOpen(false)}
+                  className="text-lg font-medium text-white/80 hover:text-white"
+                >
+                  {link.name}
+                </Link>
+              ))}
+              <div className="pt-6 border-t border-white/10 flex flex-col gap-4">
+                {isAdmin && (
+                  <Link
+                    to="/admin"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="flex items-center gap-3 text-[#D4AF37]"
+                  >
+                    <Shield className="w-5 h-5" />
+                    <span className="font-bold">Admin Panel</span>
+                  </Link>
+                )}
+                {user ? (
+                  <>
+                    <Link
+                      to="/dashboard"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="flex items-center gap-3 text-white/80"
+                    >
+                      <User className="w-5 h-5" />
+                      <span>Mon compte</span>
+                    </Link>
+                    <button
+                      onClick={() => {
+                        handleLogout();
+                        setIsMenuOpen(false);
+                      }}
+                      className="flex items-center gap-3 text-[#E63946]"
+                    >
+                      <LogOut className="w-5 h-5" />
+                      <span>Déconnexion</span>
+                    </button>
+                  </>
+                ) : (
+                  <Link
+                    to="/login"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="flex items-center gap-3 text-[#D4AF37]"
+                  >
+                    <User className="w-5 h-5" />
+                    <span className="font-bold">Connexion</span>
+                  </Link>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </nav>
   );
 }
