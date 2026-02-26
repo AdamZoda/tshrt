@@ -17,6 +17,32 @@ export function useProducts() {
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
 
+    // Local fallback products used when Supabase is unavailable
+    const FALLBACK_PRODUCTS: Product[] = [
+        {
+            id: 'fallback-tshirt',
+            name: 'T-Shirt Standard',
+            description: 'T-shirt classique.',
+            category: 'tshirt',
+            base_price: 150,
+            image_url: '/tshirt.png',
+            sizes: ['S', 'M', 'L', 'XL', 'XXL'],
+            is_active: true,
+            sort_order: 0,
+        },
+        {
+            id: 'fallback-hoodie',
+            name: 'Hoodie Standard',
+            description: 'Hoodie confortable.',
+            category: 'hoodie',
+            base_price: 250,
+            image_url: '/hoodie.png',
+            sizes: ['S', 'M', 'L', 'XL', 'XXL'],
+            is_active: true,
+            sort_order: 1,
+        },
+    ];
+
     useEffect(() => {
         const fetch = async () => {
             try {
@@ -35,6 +61,8 @@ export function useProducts() {
                 setProducts((data as Product[]) || []);
             } catch (err) {
                 console.error(err);
+                // If Supabase is unreachable (DNS error etc.), provide a local fallback so the UI still works
+                setProducts(FALLBACK_PRODUCTS);
             } finally {
                 setLoading(false);
             }

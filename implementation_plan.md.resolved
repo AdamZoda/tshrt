@@ -1,0 +1,45 @@
+# Hoodie Implementation Plan
+
+This plan covers the addition of a Hoodie model to the Studio, allowing users to switch between T-Shirts and Hoodies.
+
+## Proposed Changes
+
+### 3D Components
+
+#### [MODIFY] [ShirtModel.tsx](file:///c:/Users/user/Documents/t%20dener/tshrt-main/src/components/3d/ShirtModel.tsx)
+- Add a `modelPath` prop to [ShirtModel](file:///c:/Users/user/Documents/t%20dener/tshrt-main/src/components/3d/ShirtModel.tsx#90-128) to switch between [/tshirt.glb](file:///c:/Users/user/Documents/t%20dener/tshrt-main/public/tshirt.glb) and `/hoodie4.glb`.
+- Ensure materials are correctly applied to the Hoodie nodes (checking for node names).
+- Optimize decal projection for the hoodie geometry.
+
+## Proposed Changes
+
+### 3D Components
+
+#### [MODIFY] [ShirtModel.tsx](file:///c:/Users/user/Documents/t%20dener/tshrt-main/src/components/3d/ShirtModel.tsx)
+- Rename or refactor to `ProductModel.tsx` (or keep and make it generic).
+- Add logic to load different GLB files based on a `type` prop (`tshirt` vs `hoodie`).
+- Adjust decal positions if the Hoodie geometry differs significantly.
+
+### Studio Page
+
+#### [MODIFY] [Studio.tsx](file:///c:/Users/user/Documents/t%20dener/tshrt-main/src/pages/Studio.tsx)
+- Integrate Hoodie as a first-class product in the `displayProducts` array.
+- Update the UI to show a clean toggle or selection for T-Shirt vs Hoodie.
+- Ensure state persists correctly when switching models.
+- Validate that `design_data` correctly identifies the selected model.
+
+## Verification Plan
+
+### Automated Tests
+- Build check to ensure no JSX errors.
+- Console log verification for model loading.
+
+### Manual Verification
+- Switch between T-Shirt and Hoodie in the Studio.
+- Apply decals to both and ensure they persist when switching (or handle reset logic).
+- Verify color changes apply to both models.
+
+### Syntax Error Check (Final Step)
+- Run `npx tsc --noEmit` to detect all TypeScript/JSX syntax errors across the project.
+- Fix any reported syntax errors (missing brackets, unclosed tags, typos, etc.).
+- Re-run the check until the build compiles with **zero errors**.

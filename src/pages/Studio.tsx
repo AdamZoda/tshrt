@@ -11,7 +11,7 @@ import {
   Plus, ShoppingBag, Heart
 } from 'lucide-react';
 import { ShirtModel, StudioLights } from '../components/3d/ShirtModel';
-import type { DecalLayer } from '../components/3d/ShirtModel';
+import type { DecalLayer, ModelType } from '../components/3d/ShirtModel';
 import { useProducts } from '../hooks/useProducts';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
@@ -74,6 +74,7 @@ export function Studio() {
   const displayProducts = products.length > 0 ? products : [FALLBACK_PRODUCT];
 
   const [activeProduct, setActiveProduct] = useState<any>(null);
+  const [modelType, setModelType] = useState<ModelType>('tshirt');
   const [activeColor, setActiveColor] = useState('#111111');
   const [activeSize, setActiveSize] = useState('L');
   const [isPressing, setIsPressing] = useState(false);
@@ -150,6 +151,7 @@ export function Studio() {
         x: 0,
         y: 0.08,
         size: DEFAULT_SIZE,
+        modelType: modelType,  // NEW: Store which model this decal belongs to
       };
       setDecals((prev) => [...prev, newDecal]);
       setSelectedId(newDecal.id);
@@ -202,6 +204,7 @@ export function Studio() {
       unit_price: currentPrice,
       design_data: {
         color: activeColor,
+        modelType: modelType,
         decals: decals.map(d => ({
           side: d.side,
           x: d.x,
@@ -225,6 +228,7 @@ export function Studio() {
 
     const designData = {
       color: activeColor,
+      modelType: modelType,
       decals: decals.map(d => ({
         side: d.side,
         x: d.x,
@@ -264,26 +268,28 @@ export function Studio() {
       <div className="w-full lg:w-[420px] bg-[#181818] border-r border-white/10 p-6 flex flex-col h-full overflow-y-auto custom-scrollbar">
         <h1 className="text-2xl font-bold mb-6">Studio 3D</h1>
 
-        {/* 1. Product */}
+        {/* 1. Model Type (T-Shirt / Hoodie) */}
         <div className="mb-6">
-          <h3 className="text-sm font-semibold text-white/60 uppercase tracking-wider mb-3">1. Coupe de base</h3>
-          <div className="grid grid-cols-1 gap-2">
-            {displayProducts.map((p: any) => (
-              <button
-                key={p.id}
-                onClick={() => setActiveProduct(p)}
-                className={`py-3 px-4 rounded-xl text-sm font-medium transition-all duration-300 text-left flex justify-between items-center ${activeProduct?.id === p.id
-                  ? 'bg-white text-black shadow-[0_0_20px_rgba(212,175,55,0.2)] border border-[#D4AF37]'
-                  : 'bg-[#0F0F0F] text-white/70 hover:bg-white/10 border border-white/5'
-                  }`}
-              >
-                <span>
-                  {p.name}
-                  {p.id === 'fallback-tshirt' && <span className="ml-2 text-[10px] text-[#D4AF37] border border-[#D4AF37]/30 bg-[#D4AF37]/10 px-1.5 py-0.5 rounded tracking-widest uppercase">Démo</span>}
-                </span>
-                <span className={activeProduct?.id === p.id ? 'text-black font-bold' : 'text-[#D4AF37]'}>{p.base_price} MAD</span>
-              </button>
-            ))}
+          <h3 className="text-sm font-semibold text-white/60 uppercase tracking-wider mb-3">1. Type de produit</h3>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => setModelType('tshirt')}
+              className={`py-3 px-4 rounded-xl text-sm font-bold transition-all duration-300 flex items-center justify-center gap-2 ${modelType === 'tshirt'
+                ? 'bg-white text-black shadow-[0_0_20px_rgba(212,175,55,0.2)] border border-[#D4AF37]'
+                : 'bg-[#0F0F0F] text-white/70 hover:bg-white/10 border border-white/5'
+                }`}
+            >
+              👕 T-Shirt
+            </button>
+            <button
+              onClick={() => setModelType('hoodie')}
+              className={`py-3 px-4 rounded-xl text-sm font-bold transition-all duration-300 flex items-center justify-center gap-2 ${modelType === 'hoodie'
+                ? 'bg-white text-black shadow-[0_0_20px_rgba(212,175,55,0.2)] border border-[#D4AF37]'
+                : 'bg-[#0F0F0F] text-white/70 hover:bg-white/10 border border-white/5'
+                }`}
+            >
+              🧥 Hoodie
+            </button>
           </div>
         </div>
 
@@ -613,7 +619,7 @@ export function Studio() {
           >
             <StudioLights />
             <Suspense fallback={null}>
-              <ShirtModel color={activeColor} decals={decals} />
+              <ShirtModel key={modelType} color={activeColor} modelType={modelType} decals={decals} />
             </Suspense>
             <OrbitControls
               target={[0, 0.4, 0]}
@@ -640,7 +646,7 @@ export function Studio() {
         {decals.some((d) => d.side === 'back') && (
           <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10">
             <div className="bg-[#181818]/80 backdrop-blur-md px-4 py-2 rounded-full border border-[#D4AF37]/30 text-sm text-[#D4AF37] font-medium animate-pulse">
-              🔄 Tournez le t-shirt pour voir le dos
+              🔄 Tournez le {modelType === 'hoodie' ? 'hoodie' : 't-shirt'} pour voir le dos
             </div>
           </div>
         )}

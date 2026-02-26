@@ -1,0 +1,8 @@
+# Tasks
+
+- [x] Backup project to GitHub
+- [x] Research/Prepare Hoodie 3D model (Received `hoodie4.glb`)
+- [/] Update [ShirtModel.tsx](file:///c:/Users/user/Documents/t%20dener/tshrt-main/src/components/3d/ShirtModel.tsx) to handle both Shirt and Hoodie
+- [ ] Update [Studio.tsx](file:///c:/Users/user/Documents/t%20dener/tshrt-main/src/pages/Studio.tsx) to allow switching between products
+- [ ] Verify both models work and decals are correctly placed
+- [ ] Final syntax error check (`npx tsc --noEmit`) — fix all errors until 0 remain

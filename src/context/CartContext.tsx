@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 
 export interface CartDesignData {
     color: string;
+    modelType?: 'tshirt' | 'hoodie';
     decals: Array<{
         side: 'front' | 'back';
         x: number;
