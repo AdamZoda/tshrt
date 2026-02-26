@@ -1,7 +1,15 @@
 import React, { useState, useRef, Suspense, useEffect } from 'react';
 import * as THREE from 'three';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls } from '@react-three/drei';
+import {
+  OrbitControls,
+  useGLTF,
+  PerformanceMonitor,
+  AdaptiveDpr,
+  Preload,
+  useTexture,
+  Decal
+} from '@react-three/drei';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
@@ -613,9 +621,19 @@ export function Studio() {
 
         {readyToRender ? (
           <Canvas
-            shadows={{ type: THREE.PCFShadowMap }}
-            gl={{ preserveDrawingBuffer: true, antialias: true, powerPreference: 'high-performance' }}
-            camera={{ fov: 25, position: [0, 5, 20] }}
+            shadows
+            camera={{ position: [0, 0.4, 15], fov: 25 }}
+            gl={{
+              preserveDrawingBuffer: true,
+              powerPreference: "high-performance",
+              antialias: true,
+              alpha: true,
+              stencil: false,
+              depth: true,
+            }}
+            dpr={[1, 2]}
+            performance={{ min: 0.5 }}
+            className="w-full h-full outline-none"
           >
             <StudioLights />
             <Suspense fallback={null}>
@@ -624,11 +642,13 @@ export function Studio() {
             <OrbitControls
               target={[0, 0.4, 0]}
               enablePan={false}
-              minPolarAngle={Math.PI / 4}
-              maxPolarAngle={Math.PI / 1.94}
-              minDistance={8}
+              minDistance={5}
               maxDistance={30}
+              makeDefault
             />
+            <PerformanceMonitor onDecline={() => { }} />
+            <AdaptiveDpr pixelated />
+            <Preload all />
           </Canvas>
         ) : (
           <div className="absolute inset-0 flex items-center justify-center">

@@ -31,72 +31,47 @@ interface ShirtModelProps {
   autoRotate?: boolean;
 }
 
-function SingleDecal({
+// Memoize to prevent re-renders when other decals move
+const SingleDecal = React.memo(({
   layer,
   modelType,
-  imageUrl,
+  texture,
   mesh
 }: {
   layer: DecalLayer;
   modelType: ModelType;
-  imageUrl: string;
+  texture: THREE.Texture;
   mesh?: THREE.Mesh;
-}) {
-  const [texture, setTexture] = useState<THREE.Texture | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  // Manual texture loading instead of useTexture to avoid Suspense
-  // which can cause "loss" of the parent mesh reference during transitions.
-  useEffect(() => {
-    if (!imageUrl) return;
-
-    let mounted = true;
-    setLoading(true);
-
-    const loader = new THREE.TextureLoader();
-    loader.load(
-      imageUrl,
-      (t) => {
-        if (!mounted) return;
-        t.colorSpace = THREE.SRGBColorSpace;
-        t.flipY = false; // Standard for GLTF textures
-        t.needsUpdate = true;
-        setTexture(t);
-        setLoading(false);
-      },
-      undefined,
-      (err) => {
-        console.error("❌ SingleDecal: Failed to load texture", err);
-        if (mounted) setLoading(false);
-      }
-    );
-
-    return () => { mounted = false; };
-  }, [imageUrl]);
-
+}) => {
   // CRITICAL GUARD: Never render <Decal> unless we have EVERYTHING.
-  // This is the definitive fix for the "Decal must have a Mesh as parent" crash.
   if (!texture || !mesh || !(mesh instanceof THREE.Mesh)) {
     return null;
   }
 
   const isFront = layer.side === 'front';
   const rotY = isFront ? 0 : Math.PI;
-  const projectionTargetZ = layer.posZ !== undefined ? layer.posZ : (isFront ? 0.2 : -0.2);
+  // We place the projection slightly in front of the surface
+  const projectionTargetZ = layer.posZ !== undefined ? layer.posZ : (isFront ? 0.12 : -0.12);
   const floatOffset = layer.depthOffset || 0;
 
-  // We use the mesh prop explicitly to be 100% sure drei's internal check passes.
-  // We wrap it in an object with 'current' to satisfy strict Ref types if needed.
+  // Calculate aspect ratio to prevent squashing/stretching
+  let aspectRatio = 1;
+  if (texture.image) {
+    const width = texture.image.width || 1;
+    const height = texture.image.height || 1;
+    aspectRatio = width / height;
+  }
+
   const meshRef = { current: mesh } as any;
 
   return (
     <group position={[0, 0, isFront ? floatOffset : -floatOffset]}>
       <Decal
-        key={`${layer.id}-${imageUrl}`} // Key on imageUrl as well to force re-computation
+        key={`${layer.id}-${texture.uuid}`}
         mesh={meshRef}
         position={[isFront ? layer.x : -layer.x, layer.y, projectionTargetZ]}
         rotation={[0, rotY, 0]}
-        scale={[layer.size, layer.size, 10.0]} // Massive depth to encompass all folds/cords
+        scale={[layer.size * aspectRatio, layer.size, 0.25]} // Shallow depth (0.25) to PREVENT bleeding but cover folds
         renderOrder={10}
       >
         <meshStandardMaterial
@@ -105,14 +80,61 @@ function SingleDecal({
           depthTest={true}
           depthWrite={false}
           polygonOffset={true}
-          polygonOffsetFactor={-20} // Stronger offset
+          polygonOffsetFactor={-20}
           polygonOffsetUnits={-20}
           toneMapped={false}
+          side={THREE.FrontSide} // Only render on front-facing triangles
         />
       </Decal>
     </group>
   );
+});
+
+// Internal helper for parent components to load textures once
+function useDecalTexture(url: string) {
+  const [texture, setTexture] = useState<THREE.Texture | null>(null);
+
+  useEffect(() => {
+    if (!url) return;
+    let mounted = true;
+    const loader = new THREE.TextureLoader();
+    loader.load(url, (t) => {
+      if (!mounted) return;
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.needsUpdate = true;
+      setTexture(t);
+    });
+    return () => { mounted = false; };
+  }, [url]);
+
+  return texture;
 }
+
+const DecalRenderer = React.memo(({
+  layer,
+  modelType,
+  mesh,
+  index
+}: {
+  layer: DecalLayer,
+  modelType: ModelType,
+  mesh: THREE.Mesh,
+  index: number
+}) => {
+  const imageUrl = layer.imageUrl || (layer as any).imageBase64;
+  const texture = useDecalTexture(imageUrl || '');
+
+  if (!texture) return null;
+
+  return (
+    <SingleDecal
+      layer={layer}
+      modelType={modelType}
+      texture={texture}
+      mesh={mesh}
+    />
+  );
+});
 
 
 // ── Model Paths ────────────────────────────────────────────────────────
@@ -211,12 +233,12 @@ function TshirtMesh({
               return url && url.length > 0;
             })
             .map((layer, index) => (
-              <SingleDecal
+              <DecalRenderer
                 key={layer.id || `decal-${index}`}
                 layer={layer}
                 modelType="tshirt"
-                imageUrl={layer.imageUrl || (layer as any).imageBase64}
                 mesh={tshirtMesh}
+                index={index}
               />
             ))}
       </mesh>
@@ -290,39 +312,69 @@ function HoodieMesh({
       <primitive object={scene} />
 
       {/* HOODIE DECALS - PROJECT ON ALL MESHES TO AVOID HOLES */}
-      {allTargetMeshes.length > 0 && filteredDecals.map((layer, index) => {
-        const isFront = layer.side === 'front';
-
-        // We render one instance of the decal for each mesh piece.
-        // The Decal component will only show the part that intersects each mesh.
-        return (
-          <React.Fragment key={`${layer.id}-${index}`}>
-            {allTargetMeshes.map((mesh, mIdx) => {
-              // Calculate dynamic Z based on this specific mesh's bounding box
-              const bb = mesh.geometry.boundingBox!;
-              const meshZ = isFront ? bb.max.z + 0.01 : bb.min.z - 0.01;
-
-              return createPortal(
-                <SingleDecal
-                  key={`${layer.id}-mesh-${mIdx}`}
-                  layer={{
-                    ...layer,
-                    y: layer.y + 0.15,
-                    posZ: meshZ,
-                  }}
-                  modelType="hoodie"
-                  imageUrl={layer.imageUrl || (layer as any).imageBase64}
-                  mesh={mesh}
-                />,
-                mesh
-              );
-            })}
-          </React.Fragment>
-        );
-      })}
+      {allTargetMeshes.length > 0 && filteredDecals.map((layer, index) => (
+        <MultiMeshDecal
+          key={`${layer.id}-${index}`}
+          layer={layer}
+          meshes={allTargetMeshes}
+        />
+      ))}
     </group>
   );
 }
+
+const MultiMeshDecal = React.memo(({
+  layer,
+  meshes
+}: {
+  layer: DecalLayer;
+  meshes: THREE.Mesh[];
+}) => {
+  const imageUrl = layer.imageUrl || (layer as any).imageBase64;
+  const texture = useDecalTexture(imageUrl || '');
+  if (!texture) return null;
+
+  const isFront = layer.side === 'front';
+
+  return (
+    <>
+      {meshes.map((mesh, mIdx) => {
+        if (!mesh.geometry) return null;
+        if (!mesh.geometry.boundingBox) {
+          mesh.geometry.computeBoundingBox();
+        }
+        const bb = mesh.geometry.boundingBox;
+
+        // PERFORMANCE OPTIMIZATION (Anti-Lag): 
+        // Only project on meshes that are on the correct side (Front/Back)
+        // We use a more robust center-based check
+        const centerZ = (bb.max.z + bb.min.z) / 2;
+        const isMeshFront = centerZ > -0.05;
+        if (isFront !== isMeshFront) return null;
+
+        const meshZ = bb
+          ? (isFront ? bb.max.z + 0.01 : bb.min.z - 0.01)
+          : (isFront ? 0.5 : -0.5);
+
+        // IMPORTANT: We render as sibling, NOT child via portal.
+        // This keeps the coordinate system consistent across all pieces.
+        return (
+          <SingleDecal
+            key={`${layer.id}-mesh-${mIdx}`} // Unique key for React child
+            layer={{
+              ...layer,
+              y: layer.y + 0.15,
+              posZ: meshZ,
+            }}
+            modelType="hoodie"
+            texture={texture}
+            mesh={mesh}
+          />
+        );
+      })}
+    </>
+  );
+});
 
 // ╔════════════════════════════════════════════════════════════════════════════╗
 // ║  MAIN EXPORT - Dispatcher to correct model                                 ║
