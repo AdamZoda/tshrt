@@ -28,7 +28,7 @@ CREATE POLICY "Modification réservée aux admins" ON public.site_settings
 -- 5. Insérer les valeurs par défaut pour le Logo (Navbar)
 INSERT INTO public.site_settings (key, value)
 VALUES ('navbar', '{
-    "logo_text": "BOCHARWIT",
+    "logo_text": "PRINTS BY LILY",
     "logo_color": "#D4AF37"
 }')
 ON CONFLICT (key) DO NOTHING;
@@ -37,7 +37,7 @@ ON CONFLICT (key) DO NOTHING;
 INSERT INTO public.site_settings (key, value)
 VALUES ('footer', '{
     "description": "Premium custom clothing brand based in Morocco. Bring your designs to life with our state-of-the-art heat press technology.",
-    "email": "hello@bocharwit.ma",
+    "email": "hello@PRINTS BY LILY.ma",
     "phone": "+212 600 000 000",
     "socials": {
         "instagram": "#",

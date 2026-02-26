@@ -11,10 +11,12 @@ export function Footer() {
     <footer className="bg-[#181818] text-white/70 py-16 border-t border-white/10">
       <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-4 gap-12">
         <div>
-          <h3 className="text-2xl font-bold text-white mb-6 tracking-tighter">
-            {navbar?.logo_text || 'BOCHARWIT'}
-            <span style={{ color: navbar?.logo_color || '#D4AF37' }}>.</span>
-          </h3>
+          <div className="flex items-center gap-3 mb-6 group cursor-default">
+            <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain" />
+            <h3 className="text-2xl font-bold text-white tracking-tighter uppercase">
+              {navbar?.logo_text || 'PRINTS BY LILY'}
+            </h3>
+          </div>
           <p className="text-sm mb-6 max-w-xs">
             {footer?.description || 'Premium custom clothing brand based in Morocco. Bring your designs to life with our state-of-the-art heat press technology.'}
           </p>
@@ -50,7 +52,7 @@ export function Footer() {
           <ul className="space-y-4 text-sm">
             <li className="flex items-center gap-3">
               <Mail className="w-4 h-4 text-[#D4AF37]" />
-              <span>{footer?.email || 'hello@bocharwit.ma'}</span>
+              <span>{footer?.email || 'hello@PRINTS BY LILY.ma'}</span>
             </li>
             <li className="flex items-center gap-3">
               <Phone className="w-4 h-4 text-[#D4AF37]" />
@@ -60,7 +62,7 @@ export function Footer() {
         </div>
       </div>
       <div className="max-w-7xl mx-auto px-6 mt-16 pt-8 border-t border-white/10 text-sm flex flex-col md:flex-row justify-between items-center gap-4">
-        <p>&copy; {new Date().getFullYear()} Bocharwit. All rights reserved.</p>
+        <p>&copy; {new Date().getFullYear()} PRINTS BY LILY. All rights reserved.</p>
         <div className="flex gap-6">
           <Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
           <Link to="/terms" className="hover:text-white transition-colors">Terms of Service</Link>

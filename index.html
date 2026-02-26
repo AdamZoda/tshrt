@@ -1,13 +1,25 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>My Google AI Studio App</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
-</html>
 
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PRINTS BY LILY.</title>
+ 
+    <link rel="icon" type="image/png" href="/logo.png">
+</head>
+
+
+<body>
+  <div id="root"></div>
+  <!-- Floating Logo -->
+  <div
+    style="position: fixed; bottom: 32px; right: 32px; z-index: 9999; pointer-events: none; opacity: 0.4; transition: opacity 0.3s;"
+    onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.4'">
+    <img src="/logo.png" alt="Branding"
+      style="width: 64px; height: 64px; object-fit: contain; filter: drop-shadow(0 20px 25px rgba(0,0,0,0.5));" />
+  </div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
+</html>

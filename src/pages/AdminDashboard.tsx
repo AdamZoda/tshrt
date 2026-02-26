@@ -45,10 +45,15 @@ export function AdminDashboard() {
       {/* Sidebar */}
       <div className="w-full md:w-64 bg-[#181818] border-r border-white/10 flex flex-col h-screen sticky top-0">
         <div className="p-6 border-b border-white/10">
-          <h2 className="text-xl font-bold tracking-tighter text-white">
-            BOCHARWIT<span className="text-[#E63946]">.</span>
-          </h2>
-          <p className="text-xs text-[#D4AF37] font-medium mt-1 uppercase tracking-widest">Admin Panel</p>
+          <div className="flex items-center gap-3">
+            <img src="/logo.png" alt="Logo" className="w-8 h-8 object-contain" />
+            <div>
+              <h2 className="text-lg font-bold tracking-tighter text-white">
+                PRINTS BY LILY
+              </h2>
+              <p className="text-[10px] text-[#D4AF37] font-medium uppercase tracking-widest">Admin Panel</p>
+            </div>
+          </div>
         </div>
 
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">

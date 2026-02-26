@@ -39,7 +39,7 @@ interface CartContextType {
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
-const STORAGE_KEY = 'bocharwit_cart';
+const STORAGE_KEY = 'PRINTS BY LILY_cart';
 
 let localIdCounter = 0;
 function localId() {

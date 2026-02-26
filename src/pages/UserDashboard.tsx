@@ -282,7 +282,7 @@ export function UserDashboard() {
                             size="sm"
                             className="flex-1 bg-[#D4AF37] text-black hover:bg-white border-transparent text-xs"
                             onClick={() => {
-                              localStorage.setItem('bocharwit_load_design', JSON.stringify({
+                              localStorage.setItem('PRINTS BY LILY_load_design', JSON.stringify({
                                 product_id: design.product_id,
                                 color: design.color,
                                 design_data: design.design_data

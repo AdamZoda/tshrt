@@ -52,7 +52,7 @@ export function Register() {
       >
         <div className="text-center mb-10">
           <h1 className="text-3xl font-bold tracking-tighter mb-2">Créer un compte</h1>
-          <p className="text-white/60">Rejoignez Bocharwit pour sauvegarder vos designs et suivre vos commandes.</p>
+          <p className="text-white/60">Rejoignez PRINTS BY LILY pour sauvegarder vos designs et suivre vos commandes.</p>
         </div>
 
         {error && (

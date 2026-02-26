@@ -163,7 +163,7 @@ export function Studio() {
     if (productsLoading || displayProducts.length === 0) return;
 
     if (!activeProduct) {
-      const designToLoadRaw = localStorage.getItem('bocharwit_load_design');
+      const designToLoadRaw = localStorage.getItem('PRINTS BY LILY_load_design');
       console.log("Checking for design to load...", designToLoadRaw ? "Found" : "None");
 
       if (designToLoadRaw) {
@@ -184,7 +184,7 @@ export function Studio() {
               setSelectedId(recoveredDecals[0].id);
             }
           }
-          setTimeout(() => localStorage.removeItem('bocharwit_load_design'), 1000);
+          setTimeout(() => localStorage.removeItem('PRINTS BY LILY_load_design'), 1000);
         } catch (err) {
           console.error("Error loading saved design:", err);
           setActiveProduct(displayProducts[0]);

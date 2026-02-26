@@ -46,7 +46,7 @@ export function Home() {
                   <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#D4AF37]">{heroSettings?.badge || 'Nouveauté 2025'}</span>
                 </div>
                 <h1 className="text-5xl lg:text-8xl font-black mb-8 leading-[0.9] tracking-tighter">
-                  {heroSettings?.title || 'CRÉE TON'} <br />
+                  {heroSettings?.title || 'tu sais'} <br />
                   
                 </h1>
                 <p className="text-lg lg:text-xl text-white/50 mb-10 leading-relaxed font-light max-w-xl mx-auto lg:mx-0">
