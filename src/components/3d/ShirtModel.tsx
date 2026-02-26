@@ -16,6 +16,7 @@ export interface DecalLayer {
   size: number;
   modelType?: 'tshirt' | 'hoodie';  // NEW: Distinguish which clothing item
   posZ?: number; // Optional override for dynamic positioning
+  depthOffset?: number; // Distance from surface
 }
 
 export type ModelType = 'tshirt' | 'hoodie';
@@ -30,7 +31,6 @@ interface ShirtModelProps {
   autoRotate?: boolean;
 }
 
-// ── Single Decal Component (as child of mesh) ───────────────────────────────
 function SingleDecal({
   layer,
   modelType,
@@ -43,207 +43,77 @@ function SingleDecal({
   mesh?: THREE.Mesh;
 }) {
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
-  const [isReady, setIsReady] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const textureUrl = imageUrl || layer.imageUrl || (layer as any).imageBase64;
-
-  // Load texture asynchronously
+  // Manual texture loading instead of useTexture to avoid Suspense
+  // which can cause "loss" of the parent mesh reference during transitions.
   useEffect(() => {
-    if (!textureUrl) {
-      console.warn('⚠️ SingleDecal: No texture URL');
-      setTexture(null);
-      setIsReady(false);
-      return;
-    }
+    if (!imageUrl) return;
 
     let mounted = true;
-    const textureLoader = new THREE.TextureLoader();
+    setLoading(true);
 
-    textureLoader.load(
-      textureUrl,
-      (loadedTexture) => {
-        if (mounted) {
-          loadedTexture.colorSpace = THREE.SRGBColorSpace;
-          setTexture(loadedTexture);
-          setIsReady(true);
-          console.log('✅ Texture loaded:', textureUrl.substring(0, 50));
-        }
+    const loader = new THREE.TextureLoader();
+    loader.load(
+      imageUrl,
+      (t) => {
+        if (!mounted) return;
+        t.colorSpace = THREE.SRGBColorSpace;
+        t.flipY = false; // Standard for GLTF textures
+        t.needsUpdate = true;
+        setTexture(t);
+        setLoading(false);
       },
       undefined,
       (err) => {
-        if (mounted) {
-          console.error('⚠️ Texture load failed:', err);
-          setTexture(null);
-          setIsReady(false);
-        }
+        console.error("❌ SingleDecal: Failed to load texture", err);
+        if (mounted) setLoading(false);
       }
     );
 
-    return () => {
-      mounted = false;
-    };
-  }, [textureUrl]);
+    return () => { mounted = false; };
+  }, [imageUrl]);
 
-  if (!isReady || !texture) {
+  // CRITICAL GUARD: Never render <Decal> unless we have EVERYTHING.
+  // This is the definitive fix for the "Decal must have a Mesh as parent" crash.
+  if (!texture || !mesh || !(mesh instanceof THREE.Mesh)) {
     return null;
   }
 
-  // Calculate positions similar to old Tshirt.tsx
   const isFront = layer.side === 'front';
-  let posZ = isFront ? 0.13 : -0.13;
-  let rotY = isFront ? 0 : Math.PI;
+  const rotY = isFront ? 0 : Math.PI;
+  const projectionTargetZ = layer.posZ !== undefined ? layer.posZ : (isFront ? 0.2 : -0.2);
+  const floatOffset = layer.depthOffset || 0;
 
-  if (modelType === 'hoodie') {
-    posZ = layer.posZ !== undefined ? layer.posZ : (isFront ? 0.15 : -0.15);
-  }
+  // We use the mesh prop explicitly to be 100% sure drei's internal check passes.
+  // We wrap it in an object with 'current' to satisfy strict Ref types if needed.
+  const meshRef = { current: mesh } as any;
 
   return (
-    <Decal
-      mesh={mesh}
-      position={[isFront ? layer.x : -layer.x, layer.y, posZ]}
-      rotation={[0, rotY, 0]}
-      scale={[
-        layer.size,
-        layer.size,
-        modelType === 'hoodie' ? 5.0 : layer.size // Increased thickness to avoid clipping in deep folds
-      ]}
-      renderOrder={10} // Higher than the cloth mesh
-    >
-      <meshStandardMaterial
-        map={texture}
-        transparent={true}
-        depthTest={true}
-        depthWrite={false}
-        polygonOffset={true}
-        polygonOffsetFactor={-15} // Aggressive offset to "lift" the image off the fabric
-        polygonOffsetUnits={-15}
-        toneMapped={false}
-      />
-    </Decal>
+    <group position={[0, 0, isFront ? floatOffset : -floatOffset]}>
+      <Decal
+        key={`${layer.id}-${imageUrl}`} // Key on imageUrl as well to force re-computation
+        mesh={meshRef}
+        position={[isFront ? layer.x : -layer.x, layer.y, projectionTargetZ]}
+        rotation={[0, rotY, 0]}
+        scale={[layer.size, layer.size, 10.0]} // Massive depth to encompass all folds/cords
+        renderOrder={10}
+      >
+        <meshStandardMaterial
+          map={texture}
+          transparent={true}
+          depthTest={true}
+          depthWrite={false}
+          polygonOffset={true}
+          polygonOffsetFactor={-20} // Stronger offset
+          polygonOffsetUnits={-20}
+          toneMapped={false}
+        />
+      </Decal>
+    </group>
   );
 }
 
-// ── Single Decal S2 (SOLUTION 2 - with explicit mesh prop) ────────────────────────────────
-// ⚠️ THIS DIDN'T WORK - Kept for reference only
-
-// ── SingleDecalImp: Imperative decal creation for hoodie ────────────────────────────────────
-function SingleDecalImp({
-  layer,
-  modelType,
-  imageUrl,
-}: {
-  layer: DecalLayer;
-  modelType: ModelType;
-  imageUrl: string;
-}) {
-  const { scene } = useThree();
-  const meshRef = useRef<THREE.Mesh | null>(null);
-
-  useEffect(() => {
-    if (!scene || !imageUrl) {
-      console.warn(`⚠️ SingleDecalImp: Missing scene or imageUrl`);
-      return;
-    }
-
-    // Choose the most likely visible mesh: largest bounding box volume
-    let targetMesh: THREE.Mesh | null = null;
-    let maxVolume = 0;
-    scene.traverse((child: any) => {
-      if (child.isMesh && child.geometry) {
-        try {
-          const geo = child.geometry as THREE.BufferGeometry;
-          geo.computeBoundingBox();
-          const bb = geo.boundingBox;
-          if (bb) {
-            const size = new THREE.Vector3();
-            bb.getSize(size);
-            const vol = size.x * size.y * size.z;
-            if (vol > maxVolume) {
-              maxVolume = vol;
-              targetMesh = child;
-            }
-          }
-        } catch (e) {
-          // ignore
-        }
-      }
-    });
-
-    if (!targetMesh) {
-      console.error('❌ SingleDecalImp: No target mesh found in scene');
-      return;
-    }
-
-    console.log(`📥 SingleDecalImp: Using target mesh "${targetMesh.name || 'unknown'}" (vol=${maxVolume.toFixed(3)})`);
-
-    // Load texture
-    let mounted = true;
-    const textureLoader = new THREE.TextureLoader();
-
-    textureLoader.load(
-      imageUrl,
-      (loadedTexture) => {
-        if (!mounted) return;
-        try {
-          if ('colorSpace' in loadedTexture) loadedTexture.colorSpace = THREE.SRGBColorSpace;
-          console.log(`✅ SingleDecalImp: Texture loaded for layer ${layer.id}`);
-
-          // compute world position from local coords (layer.x, layer.y)
-          const isFront = layer.side === 'front';
-          const localZ = isFront ? 0.15 : -0.15;
-          const localPos = new THREE.Vector3(layer.x, layer.y, localZ);
-
-          // convert local (mesh space) to world coords
-          const worldPos = localPos.clone();
-          targetMesh.updateWorldMatrix(true, false);
-          targetMesh.localToWorld(worldPos);
-
-          const rotY = isFront ? 0 : Math.PI;
-          const rotation = new THREE.Euler(0, rotY, 0);
-          const scale = new THREE.Vector3(layer.size, layer.size, layer.size);
-
-          const decalGeometry = new DecalGeometry(targetMesh, worldPos, rotation, scale);
-          const decalMaterial = new THREE.MeshPhongMaterial({
-            map: loadedTexture,
-            transparent: true,
-            depthTest: true,
-            depthWrite: false,
-            polygonOffset: true,
-            polygonOffsetFactor: -4,
-            side: THREE.DoubleSide,
-          });
-
-          const decalMesh = new THREE.Mesh(decalGeometry, decalMaterial);
-          decalMesh.castShadow = false;
-          decalMesh.receiveShadow = false;
-          decalMesh.name = `decal-${layer.id}`;
-          decalMesh.renderOrder = 10;
-
-          // Add to scene (attach to targetMesh parent to keep same space)
-          const parent = targetMesh.parent || scene;
-          parent.add(decalMesh);
-          meshRef.current = decalMesh;
-          console.log(`✅ SingleDecalImp: Decal created for layer ${layer.id}`);
-        } catch (err) {
-          console.error(`❌ SingleDecalImp: Error creating decal:`, err);
-        }
-      },
-      undefined,
-      (err) => {
-        console.error(`❌ SingleDecalImp: Texture load failed:`, err);
-      }
-    );
-
-    return () => {
-      mounted = false;
-      if (meshRef.current && meshRef.current.parent) {
-        meshRef.current.parent.remove(meshRef.current);
-      }
-    };
-  }, [scene, imageUrl, layer]);
-
-  return null;
-}
 
 // ── Model Paths ────────────────────────────────────────────────────────
 const MODEL_PATHS: Record<ModelType, string> = {
@@ -294,7 +164,8 @@ function TshirtMesh({
   const groupRef = useRef<THREE.Group>(null);
 
   // T-SHIRT MESH NAME (do not change unless GLB changes)
-  const meshGeometry = nodes?.tshirt?.geometry;
+  const tshirtMesh = nodes?.tshirt;
+  const meshGeometry = tshirtMesh?.geometry;
   const meshMaterial = materials?.color || materials?.Material || new THREE.MeshStandardMaterial({ color: 0xffffff });
 
   useEffect(() => {
@@ -331,8 +202,8 @@ function TshirtMesh({
         receiveShadow
         dispose={null}
       >
-        {/* T-SHIRT DECALS */}
-        {Array.isArray(decals) && decals.length > 0 &&
+        {/* T-SHIRT DECALS - ONLY RENDER IF MESH IS READY */}
+        {tshirtMesh && Array.isArray(decals) && decals.length > 0 &&
           decals
             .filter((layer) => !layer.modelType || layer.modelType === 'tshirt')
             .filter((layer) => {
@@ -340,14 +211,13 @@ function TshirtMesh({
               return url && url.length > 0;
             })
             .map((layer, index) => (
-              <React.Suspense key={layer.id || `decal-${index}`} fallback={null}>
-                <SingleDecal
-                  layer={layer}
-                  modelType="tshirt"
-                  imageUrl={layer.imageUrl || (layer as any).imageBase64}
-                  mesh={meshGeometry as any}
-                />
-              </React.Suspense>
+              <SingleDecal
+                key={layer.id || `decal-${index}`}
+                layer={layer}
+                modelType="tshirt"
+                imageUrl={layer.imageUrl || (layer as any).imageBase64}
+                mesh={tshirtMesh}
+              />
             ))}
       </mesh>
     </group>
@@ -365,56 +235,43 @@ function HoodieMesh({
   decals: DecalLayer[];
 }) {
   const glbPath = MODEL_PATHS.hoodie;
-  const gltfResult = useGLTF(glbPath) as any;
-  const { scene } = gltfResult;
+  const { scene } = useGLTF(glbPath) as any;
   const groupRef = useRef<THREE.Group>(null);
 
-  // Find the body mesh to attach decals to
-  const bodyMesh = React.useMemo(() => {
-    if (!scene) return null;
-    let bMesh: THREE.Mesh | null = null;
-    let maxVol = 0;
+  // Find the main body mesh in the scene (don't clone it!)
+  // Find ALL front-surface meshes to avoid occlusion by folds/cords
+  const allTargetMeshes = React.useMemo(() => {
+    const list: THREE.Mesh[] = [];
     scene.traverse((child: any) => {
       if (child.isMesh && child.geometry) {
-        child.geometry.computeBoundingBox();
+        // Compute bounding box if missing
+        if (!child.geometry.boundingBox) child.geometry.computeBoundingBox();
         const bb = child.geometry.boundingBox;
         if (bb) {
           const s = new THREE.Vector3();
           bb.getSize(s);
           const vol = s.x * s.y * s.z;
-          if (vol > maxVol) {
-            maxVol = vol;
-            bMesh = child;
+          // Only keep meshes big enough to be part of the garment (ignore tiny details)
+          if (vol > 0.0001) {
+            list.push(child);
           }
         }
       }
     });
-
-    if (bMesh) {
-      console.log(`✅ HOODIE body found: "${(bMesh as any).name}"`);
-    } else {
-      console.error('❌ HOODIE: No body mesh found in GLB');
-    }
-
-    return bMesh;
+    return list;
   }, [scene]);
 
   // Apply color to all materials
   useEffect(() => {
-    if (!scene) return;
     scene.traverse((child: any) => {
       if (child.isMesh && child.material) {
-        try {
-          const materials = Array.isArray(child.material) ? child.material : [child.material];
-          materials.forEach((mat: any) => {
-            if (mat?.color) {
-              mat.color.set(color);
-              mat.needsUpdate = true;
-            }
-          });
-        } catch (err) {
-          console.warn('⚠️ Hoodie color error:', err);
-        }
+        const mats = Array.isArray(child.material) ? child.material : [child.material];
+        mats.forEach((m: any) => {
+          if (m.color) {
+            m.color.set(color);
+            m.needsUpdate = true;
+          }
+        });
       }
     });
   }, [color, scene]);
@@ -426,51 +283,43 @@ function HoodieMesh({
   });
 
   const modelPos = MODEL_POSITIONING.hoodie;
-
-  const filteredDecals = Array.isArray(decals) ? decals
-    .filter((layer) => !layer.modelType || layer.modelType === 'hoodie')
-    .filter((layer) => {
-      const url = layer.imageUrl || (layer as any).imageBase64;
-      return url && url.length > 0;
-    }) : [];
+  const filteredDecals = decals.filter(d => !d.modelType || d.modelType === 'hoodie');
 
   return (
     <group ref={groupRef} position={modelPos.position} scale={modelPos.scale}>
       <primitive object={scene} />
 
-      {/*
-        We use createPortal to imperatively render the declarative <SingleDecal> components
-        as direct children of the specific bodyMesh inside the loaded GLTF hierarchy!
-        This is the magic that makes DecalGeometry work perfectly while preserving the model.
-      */}
-      {bodyMesh && filteredDecals.map((layer, index) => {
-        // Compute dynamic Z offset from the body mesh bounding box
+      {/* HOODIE DECALS - PROJECT ON ALL MESHES TO AVOID HOLES */}
+      {allTargetMeshes.length > 0 && filteredDecals.map((layer, index) => {
         const isFront = layer.side === 'front';
-        const bb = bodyMesh.geometry.boundingBox;
 
-        let dynamicPosZ = isFront ? 0.3 : -0.3;
-        if (bb) {
-          // Push slightly outside the bounding sphere for cleaner projection
-          dynamicPosZ = isFront ? bb.max.z + 0.1 : bb.min.z - 0.1;
-        }
+        // We render one instance of the decal for each mesh piece.
+        // The Decal component will only show the part that intersects each mesh.
+        return (
+          <React.Fragment key={`${layer.id}-${index}`}>
+            {allTargetMeshes.map((mesh, mIdx) => {
+              // Calculate dynamic Z based on this specific mesh's bounding box
+              const bb = mesh.geometry.boundingBox!;
+              const meshZ = isFront ? bb.max.z + 0.01 : bb.min.z - 0.01;
 
-        return createPortal(
-          <React.Suspense key={layer.id || `decal-${index}`} fallback={null}>
-            <SingleDecal
-              layer={{
-                ...layer,
-                y: layer.y + 0.15, // Offset Y to align T-shirt coordinate center with Hoodie chest center
-                posZ: dynamicPosZ
-              } as any}
-              modelType="hoodie"
-              imageUrl={layer.imageUrl || (layer as any).imageBase64}
-              mesh={bodyMesh}
-            />
-          </React.Suspense>,
-          bodyMesh
+              return createPortal(
+                <SingleDecal
+                  key={`${layer.id}-mesh-${mIdx}`}
+                  layer={{
+                    ...layer,
+                    y: layer.y + 0.15,
+                    posZ: meshZ,
+                  }}
+                  modelType="hoodie"
+                  imageUrl={layer.imageUrl || (layer as any).imageBase64}
+                  mesh={mesh}
+                />,
+                mesh
+              );
+            })}
+          </React.Fragment>
         );
       })}
-
     </group>
   );
 }

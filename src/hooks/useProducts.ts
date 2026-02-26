@@ -47,7 +47,7 @@ export function useProducts() {
         const fetch = async () => {
             try {
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 2000);
+                const timeoutId = setTimeout(() => controller.abort(), 5000);
 
                 const { data, error } = await supabase
                     .from('products')
@@ -59,8 +59,12 @@ export function useProducts() {
                 clearTimeout(timeoutId);
                 if (error) throw error;
                 setProducts((data as Product[]) || []);
-            } catch (err) {
-                console.error(err);
+            } catch (err: any) {
+                if (err.name === 'AbortError') return; // Silence normal lifecycle aborts
+                console.group('🔍 useProducts: API Connection Error');
+                console.error('Error details:', err);
+                console.warn('Falling back to local product data');
+                console.groupEnd();
                 // If Supabase is unreachable (DNS error etc.), provide a local fallback so the UI still works
                 setProducts(FALLBACK_PRODUCTS);
             } finally {
@@ -82,7 +86,7 @@ export function useProduct(id: string | undefined) {
         const fetch = async () => {
             try {
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 2000);
+                const timeoutId = setTimeout(() => controller.abort(), 5000);
 
                 const { data, error } = await supabase
                     .from('products')
@@ -94,8 +98,9 @@ export function useProduct(id: string | undefined) {
                 clearTimeout(timeoutId);
                 if (error) throw error;
                 setProduct(data as Product | null);
-            } catch (err) {
-                console.error(err);
+            } catch (err: any) {
+                if (err.name === 'AbortError') return;
+                console.error('🔍 useProduct: Single Fetch Error', err);
             } finally {
                 setLoading(false);
             }
