@@ -5,12 +5,15 @@ import { supabase } from '../lib/supabase';
 export interface CartDesignData {
     color: string;
     modelType?: 'tshirt' | 'hoodie';
+    front_preview?: string; // Base64 screenshot
+    back_preview?: string;  // Base64 screenshot
     decals: Array<{
         side: 'front' | 'back';
         x: number;
         y: number;
         size: number;
-        imageBase64?: string;
+        id?: string;
+        imageUrl: string; // The high-res asset
     }>;
 }
 

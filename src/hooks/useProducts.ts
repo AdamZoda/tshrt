@@ -43,38 +43,71 @@ export function useProducts() {
         },
     ];
 
+    const fetchProducts = async () => {
+        setLoading(true);
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+            const { data, error } = await supabase
+                .from('products')
+                .select('*')
+                .order('sort_order')
+                .abortSignal(controller.signal);
+
+            clearTimeout(timeoutId);
+            if (error) throw error;
+            setProducts((data as Product[]) || []);
+        } catch (err: any) {
+            if (err.name === 'AbortError') return;
+            console.warn('Falling back to local product data');
+            setProducts(FALLBACK_PRODUCTS);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
-        const fetch = async () => {
-            try {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-                const { data, error } = await supabase
-                    .from('products')
-                    .select('*')
-                    .eq('is_active', true)
-                    .order('sort_order')
-                    .abortSignal(controller.signal);
-
-                clearTimeout(timeoutId);
-                if (error) throw error;
-                setProducts((data as Product[]) || []);
-            } catch (err: any) {
-                if (err.name === 'AbortError') return; // Silence normal lifecycle aborts
-                console.group('🔍 useProducts: API Connection Error');
-                console.error('Error details:', err);
-                console.warn('Falling back to local product data');
-                console.groupEnd();
-                // If Supabase is unreachable (DNS error etc.), provide a local fallback so the UI still works
-                setProducts(FALLBACK_PRODUCTS);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetch();
+        fetchProducts();
     }, []);
 
-    return { products, loading };
+    const addProduct = async (product: Partial<Product>) => {
+        const { data, error } = await supabase
+            .from('products')
+            .insert([product])
+            .select()
+            .single();
+        if (!error && data) {
+            setProducts(prev => [...prev, data as Product]);
+        }
+        return { data, error };
+    };
+
+    const updateProduct = async (id: string, updates: Partial<Product>) => {
+        const { data, error } = await supabase
+            .from('products')
+            .update(updates)
+            .eq('id', id)
+            .select()
+            .single();
+        if (!error && data) {
+            setProducts(prev => prev.map(p => p.id === id ? (data as Product) : p));
+        }
+        return { data, error };
+    };
+
+    const deleteProduct = async (id: string) => {
+        const { error } = await supabase
+            .from('products')
+            .delete()
+            .eq('id', id);
+        if (!error) {
+            setProducts(prev => prev.filter(p => p.id !== id));
+        }
+        return { error };
+    };
+
+    return { products, loading, addProduct, updateProduct, deleteProduct, refresh: fetchProducts };
 }
 
 export function useProduct(id: string | undefined) {

@@ -8,17 +8,22 @@ import { useProducts } from '../hooks/useProducts';
 export function Explore() {
   const { products, loading } = useProducts();
   const [searchParams] = useSearchParams();
-  const initialCategory = searchParams.get('category') || 'All';
-  const [activeCategory, setActiveCategory] = useState(initialCategory);
+  const categoryParam = searchParams.get('category') || 'All';
+  // Normalize category: handle 'tshirts' -> 'tshirt', and case sensitivity
+  const normalizedCategory = categoryParam.toLowerCase().endsWith('s') && categoryParam !== 'All'
+    ? categoryParam.slice(0, -1).toLowerCase()
+    : categoryParam;
+
+  const [activeCategory, setActiveCategory] = useState(normalizedCategory);
 
   const CATEGORIES = ['All', 'tshirt', 'hoodie'];
 
-  const filteredProducts = activeCategory === 'All'
+  const filteredProducts = activeCategory.toLowerCase() === 'all'
     ? products
-    : products.filter(p => p.category === activeCategory);
+    : products.filter(p => p.category?.toLowerCase() === activeCategory.toLowerCase());
 
   return (
-    <div className="min-h-screen bg-[#0F0F0F] pt-12 pb-32">
+    <div className="min-h-screen bg-[#0F0F0F] pt-8 pb-32">
       <div className="max-w-7xl mx-auto px-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 gap-6">
           <div>

@@ -65,5 +65,41 @@ export function useFeaturedDesigns() {
 
     useEffect(() => { fetchDesigns(); }, []);
 
-    return { designs, loading, refetch: fetchDesigns };
+    const addDesign = async (design: Partial<FeaturedDesign>) => {
+        const { data, error } = await supabase
+            .from('featured_designs')
+            .insert([design])
+            .select()
+            .single();
+        if (!error && data) {
+            setDesigns(prev => [...prev, data as FeaturedDesign]);
+        }
+        return { data, error };
+    };
+
+    const updateDesign = async (id: string, updates: Partial<FeaturedDesign>) => {
+        const { data, error } = await supabase
+            .from('featured_designs')
+            .update(updates)
+            .eq('id', id)
+            .select()
+            .single();
+        if (!error && data) {
+            setDesigns(prev => prev.map(d => d.id === id ? (data as FeaturedDesign) : d));
+        }
+        return { data, error };
+    };
+
+    const deleteDesign = async (id: string) => {
+        const { error } = await supabase
+            .from('featured_designs')
+            .delete()
+            .eq('id', id);
+        if (!error) {
+            setDesigns(prev => prev.filter(d => d.id !== id));
+        }
+        return { error };
+    };
+
+    return { designs, loading, addDesign, updateDesign, deleteDesign, refresh: fetchDesigns };
 }

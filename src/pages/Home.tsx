@@ -29,7 +29,7 @@ export function Home() {
   return (
     <div className="min-h-screen bg-[#0F0F0F]">
       {/* Hero Section */}
-      <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 overflow-hidden border-b border-white/5">
+      <section className="relative pt-4 pb-20 lg:pt-8 lg:pb-32 overflow-hidden border-b border-white/5">
         <div className="absolute top-0 left-0 w-full h-[800px] bg-gradient-to-b from-[#D4AF37]/5 via-transparent to-transparent pointer-events-none" />
 
         <div className="container mx-auto px-6 relative z-10">
@@ -47,9 +47,7 @@ export function Home() {
                 </div>
                 <h1 className="text-5xl lg:text-8xl font-black mb-8 leading-[0.9] tracking-tighter">
                   {heroSettings?.title || 'CRÉE TON'} <br />
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-white/80 to-[#D4AF37]">
-                    PROPRE STYLE
-                  </span>
+                  
                 </h1>
                 <p className="text-lg lg:text-xl text-white/50 mb-10 leading-relaxed font-light max-w-xl mx-auto lg:mx-0">
                   {heroSettings?.subtitle || 'Personnalisez vos t-shirts avec notre outil 3D ultra-fluide et recevez-les chez vous.'}
@@ -80,14 +78,20 @@ export function Home() {
                     antialias: true
                   }}
                   camera={{
-                    fov: 25,
-                    position: [0, 5, 20],
+                    fov: heroSettings?.model_type === 'hoodie' ? 40 : 20,
+                    position: [0, 4, 20],
                   }}
                 >
                   <StudioLights />
 
                   <Suspense fallback={null}>
-                    <ShirtModel color={heroSettings?.shirt_color || '#111111'} autoRotate />
+                    <ShirtModel
+                      key={heroSettings?.model_type || 'tshirt'}
+                      modelType={heroSettings?.model_type || 'tshirt'}
+                      color={heroSettings?.shirt_color || '#111111'}
+                      decals={heroSettings?.decals || []}
+                      autoRotate
+                    />
                   </Suspense>
 
                   <OrbitControls
@@ -146,7 +150,7 @@ export function Home() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {featuredDesigns.map((design, index) => (
+            {featuredDesigns.filter(d => d.is_featured).map((design, index) => (
               <motion.div
                 key={design.id}
                 initial={{ opacity: 0, y: 30 }}

@@ -1,6 +1,6 @@
 import React, { useState, useRef, Suspense, useEffect } from 'react';
 import * as THREE from 'three';
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useFrame, useThree, createPortal } from '@react-three/fiber';
 import {
   OrbitControls,
   useGLTF,
@@ -16,11 +16,12 @@ import { Button } from '../components/ui/Button';
 import {
   Upload, RotateCcw, Check, Zap, Pipette, Trash2,
   ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Crosshair,
-  Plus, ShoppingBag, Heart
+  Plus, ShoppingBag, Heart, Sun
 } from 'lucide-react';
 import { ShirtModel, StudioLights } from '../components/3d/ShirtModel';
 import type { DecalLayer, ModelType } from '../components/3d/ShirtModel';
 import { useProducts } from '../hooks/useProducts';
+import { useSiteSettings } from '../hooks/useSiteSettings';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -64,10 +65,67 @@ const convertToBase64 = (file: File): Promise<string> => {
 };
 
 // ── Component ──────────────────────────────────────────────────────────
+// ── Automated Scene Capture Utility ───────────────────────────────────
+/**
+ * Utility to capture front and back screenshots from the Canvas.
+ * Using a hidden component inside the Canvas to access useThree.
+ */
+interface SceneExporterProps {
+  onReady: (captureFunc: () => Promise<{ front: string; back: string }>) => void;
+}
+
+const SceneExporter = ({ onReady }: SceneExporterProps) => {
+  const { gl, scene, camera, controls } = useThree() as any;
+
+  useEffect(() => {
+    const captureScreenshots = async () => {
+      // 1. Store original position
+      const originalPosition = camera.position.clone();
+      const originalTarget = (controls as any)?.target?.clone() || new THREE.Vector3(0, 0, 0);
+
+      // Distance from center for screenshots
+      const distance = 10;
+
+      // 2. Capture Front
+      camera.position.set(0, 0.4, distance);
+      camera.lookAt(originalTarget);
+      if (controls) controls.update();
+      gl.render(scene, camera);
+      const front = gl.domElement.toDataURL('image/png');
+
+      // 3. Capture Back
+      camera.position.set(0, 0.4, -distance);
+      camera.lookAt(originalTarget);
+      if (controls) controls.update();
+      gl.render(scene, camera);
+      const back = gl.domElement.toDataURL('image/png');
+
+      // 4. Restore
+      camera.position.copy(originalPosition);
+      if (controls) {
+        controls.target.copy(originalTarget);
+        controls.update();
+      }
+      gl.render(scene, camera);
+
+      return { front, back };
+    };
+
+    onReady(captureScreenshots);
+  }, [gl, scene, camera, controls, onReady]);
+
+  return null;
+};
+
 export function Studio() {
   const navigate = useNavigate();
+  const { profile, user, isAdmin } = useAuth();
   const { products, loading: productsLoading } = useProducts();
   const { addToCart } = useCart();
+
+  // Exporter ref
+  const captureRef = useRef<(() => Promise<{ front: string; back: string }>) | null>(null);
+  const [isCapturing, setIsCapturing] = useState(false);
 
   const FALLBACK_PRODUCT = {
     id: 'fallback-tshirt',
@@ -86,6 +144,7 @@ export function Studio() {
   const [activeColor, setActiveColor] = useState('#111111');
   const [activeSize, setActiveSize] = useState('L');
   const [isPressing, setIsPressing] = useState(false);
+  const [studioMode, setStudioMode] = useState(false);
   const [isPressed, setIsPressed] = useState(false);
 
   // Multi-decal state
@@ -93,7 +152,6 @@ export function Studio() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   // Favorites state
-  const { user } = useAuth();
   const [isSavingDesign, setIsSavingDesign] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
@@ -187,7 +245,7 @@ export function Studio() {
     setTimeout(() => {
       setIsPressing(false);
       setIsPressed(true);
-    }, 3000);
+    }, 800);
   };
 
   const handleResetAll = () => {
@@ -201,8 +259,23 @@ export function Studio() {
     ? activeProduct.base_price + (decals.length > 0 ? 50 * decals.length : 0)
     : 0;
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     if (!activeProduct) return;
+
+    let screenshots = { front: '', back: '' };
+    if (captureRef.current) {
+      setIsCapturing(true);
+      try {
+        // SMALL DELAY TO FINISH RENDERING
+        await new Promise(r => setTimeout(r, 100));
+        screenshots = await captureRef.current();
+      } catch (err) {
+        console.error("Capture failed:", err);
+      } finally {
+        setIsCapturing(false);
+      }
+    }
+
     addToCart({
       product_id: activeProduct.id,
       product_name: activeProduct.name + (decals.length > 0 ? ' (Personnalisé)' : ''),
@@ -213,16 +286,55 @@ export function Studio() {
       design_data: {
         color: activeColor,
         modelType: modelType,
+        front_preview: screenshots.front,
+        back_preview: screenshots.back,
         decals: decals.map(d => ({
           side: d.side,
           x: d.x,
           y: d.y,
           size: d.size,
-          imageBase64: d.imageUrl
+          id: d.id,
+          imageUrl: d.imageUrl
         }))
       }
     });
     navigate('/cart');
+  };
+
+  const { update: updateHeroSettings } = useSiteSettings('hero');
+  const [isUpdatingHero, setIsUpdatingHero] = useState(false);
+
+  const handleSetAsHero = async () => {
+    if (!isAdmin || !activeProduct) return;
+    setIsUpdatingHero(true);
+
+    try {
+      const { error } = await updateHeroSettings({
+        model_type: modelType,
+        shirt_color: activeColor,
+        decals: decals.map(d => ({
+          side: d.side,
+          x: d.x,
+          y: d.y,
+          size: d.size,
+          imageUrl: d.imageUrl
+        })),
+        // Keep existing text if possible, or provide defaults
+        title: 'CRÉE TON',
+        badge: 'Nouveauté 2025',
+        subtitle: 'Personnalisez vos t-shirts avec notre outil 3D ultra-fluide et recevez-les chez vous.',
+        cta_text: 'Démarrer la création',
+        cta_link: '/studio'
+      });
+
+      if (error) throw error;
+      alert("Design défini comme Hero sur l'accueil ! 🌟");
+    } catch (err) {
+      console.error("Failed to update hero settings", err);
+      alert("Erreur lors de la mise à jour du Hero.");
+    } finally {
+      setIsUpdatingHero(false);
+    }
   };
 
   const handleSaveDesign = async () => {
@@ -242,7 +354,8 @@ export function Studio() {
         x: d.x,
         y: d.y,
         size: d.size,
-        imageBase64: d.imageUrl
+        id: d.id,
+        imageUrl: d.imageUrl
       }))
     };
 
@@ -557,6 +670,17 @@ export function Studio() {
             )}
           </Button>
 
+          {isAdmin && (
+            <Button
+              className="w-full bg-[#D4AF37]/10 text-[#D4AF37] border border-[#D4AF37]/30 hover:bg-[#D4AF37] hover:text-black mt-2 font-bold"
+              size="lg"
+              onClick={handleSetAsHero}
+              disabled={isUpdatingHero}
+            >
+              {isUpdatingHero ? 'Mise à jour...' : '🌟 Mettre en Avant (Accueil)'}
+            </Button>
+          )}
+
           <div className="flex items-center gap-3 mt-2">
             <Button
               variant="secondary"
@@ -584,6 +708,20 @@ export function Studio() {
 
       {/* ── Right Panel — 3D Preview ─────────────────────────────── */}
       <div className="flex-1 relative bg-[#0a0a0a] overflow-hidden">
+        {/* Studio Light Toggle */}
+        <div className="absolute top-6 right-6 z-50">
+          <button
+            onClick={() => setStudioMode(!studioMode)}
+            className={`p-3 rounded-xl backdrop-blur-md transition-all duration-300 flex items-center gap-3 border shadow-2xl ${studioMode
+              ? 'bg-[#D4AF37] text-black border-[#D4AF37] shadow-[#D4AF37]/20 scale-105'
+              : 'bg-black/40 text-white border-white/10 hover:bg-black/60 hover:scale-105'
+              }`}
+          >
+            <Sun className={`w-5 h-5 ${studioMode ? 'fill-black' : ''} transition-transform duration-500 ${studioMode ? 'rotate-180' : ''}`} />
+            <span className="text-sm font-bold tracking-tight">Studio Light</span>
+          </button>
+        </div>
+
         <AnimatePresence>
           {isPressing && (
             <motion.div
@@ -635,7 +773,8 @@ export function Studio() {
             performance={{ min: 0.5 }}
             className="w-full h-full outline-none"
           >
-            <StudioLights />
+            <SceneExporter onReady={(func) => captureRef.current = func} />
+            <StudioLights studioMode={studioMode} />
             <Suspense fallback={null}>
               <ShirtModel key={modelType} color={activeColor} modelType={modelType} decals={decals} />
             </Suspense>

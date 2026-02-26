@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Package, Heart, Settings, LogOut, ChevronRight, Eye } from 'lucide-react';
+import { Package, User, Heart, Settings, ShoppingBag, LogOut, ChevronRight, Eye, X } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -150,16 +150,65 @@ export function UserDashboard() {
                           <h3 className="text-lg font-bold font-mono">N° {order.id.split('-')[0].toUpperCase()}</h3>
                         </div>
                         <div className="flex flex-col items-end gap-2">
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${order.status === 'Expédié' ? 'bg-green-500/10 text-green-400' :
-                            order.status === 'En préparation' ? 'bg-[#D4AF37]/10 text-[#D4AF37]' :
-                              order.status === 'Sous la presse' ? 'bg-blue-500/10 text-blue-400' :
-                                order.status === 'nouveau' ? 'bg-purple-500/10 text-purple-400' :
-                                  'bg-red-500/10 text-red-500'
-                            }`}>
-                            {order.status}
-                          </span>
-                          <span className="font-bold text-[#D4AF37]">{order.total_amount} MAD</span>
+                          <span className="font-bold text-[#D4AF37] text-lg">{order.total_amount} MAD</span>
                         </div>
+                      </div>
+
+                      {/* Status Stepper or Refusal Message */}
+                      <div className="mb-8 px-2">
+                        {['cancelled', 'refused'].includes(order.status) ? (
+                          <div className="flex items-center gap-3 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500">
+                            <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
+                              <X className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <p className="font-bold">Commande {order.status === 'refused' ? 'Refusée' : 'Annulée'}</p>
+                              <p className="text-sm opacity-80">
+                                {order.status === 'refused'
+                                  ? "Désolé, votre commande a été refusée par l'administration."
+                                  : "Cette commande a été annulée."}
+                              </p>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex justify-between relative">
+                            <div className="absolute top-1/2 left-0 w-full h-0.5 bg-white/5 -translate-y-1/2 z-0" />
+                            <div
+                              className="absolute top-1/2 left-0 h-0.5 bg-[#D4AF37] -translate-y-1/2 z-0 transition-all duration-1000"
+                              style={{
+                                width: order.status === 'pending' ? '0%' :
+                                  order.status === 'confirmed' ? '25%' :
+                                    order.status === 'pressing' ? '50%' :
+                                      order.status === 'shipped' ? '75%' :
+                                        order.status === 'delivered' ? '100%' : '0%'
+                              }}
+                            />
+
+                            {[
+                              { key: 'pending', label: 'Nouveau' },
+                              { key: 'confirmed', label: 'Confirmé' },
+                              { key: 'pressing', label: 'Préparation' },
+                              { key: 'shipped', label: 'Expédié' },
+                              { key: 'delivered', label: 'Livré' }
+                            ].map((s, idx) => {
+                              const statuses = ['pending', 'confirmed', 'pressing', 'shipped', 'delivered'];
+                              const currentIdx = statuses.indexOf(order.status);
+                              const isCompleted = currentIdx >= idx;
+                              const isCurrent = currentIdx === idx;
+
+                              return (
+                                <div key={s.key} className="relative z-10 flex flex-col items-center gap-2">
+                                  <div className={`w-3 h-3 rounded-full transition-all duration-500 ${isCompleted ? 'bg-[#D4AF37] scale-125 shadow-[0_0_10px_#D4AF37]' : 'bg-[#222] border border-white/10'
+                                    }`} />
+                                  <span className={`text-[10px] font-medium transition-colors ${isCurrent ? 'text-[#D4AF37]' : isCompleted ? 'text-white/80' : 'text-white/20'
+                                    }`}>
+                                    {s.label}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
 
                       <div className="h-px bg-white/5 mb-6" />
@@ -176,7 +225,7 @@ export function UserDashboard() {
                                 )}
                               </div>
                               <div className="min-w-0">
-                                <p className="text-sm font-bold truncate">Article personnalisé ({item.quantity}x)</p>
+                                <p className="text-sm font-bold truncate">{item.product_name || 'Article personnalisé'} ({item.quantity}x)</p>
                                 <p className="text-xs text-white/50">Taille: {item.size} • Couleur: {item.color}</p>
                               </div>
                             </div>
@@ -288,8 +337,24 @@ export function UserDashboard() {
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-white/60">Téléphone</label>
-                    <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
-                      className="w-full bg-[#0F0F0F] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#D4AF37] transition-colors" />
+                    <div className="flex">
+                      <div className="bg-[#0A0A0A] border border-r-0 border-white/10 rounded-l-xl px-4 py-3 text-white/40 flex items-center text-sm font-mono">
+                        +212
+                      </div>
+                      <input
+                        type="tel"
+                        pattern="[0-9]{9}"
+                        maxLength={9}
+                        placeholder="612345678"
+                        value={phone.replace('+212', '')}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, '').slice(0, 9);
+                          setPhone(val ? `+212${val}` : '');
+                        }}
+                        className="flex-1 bg-[#0F0F0F] border border-white/10 rounded-r-xl px-4 py-3 text-white focus:outline-none focus:border-[#D4AF37] transition-colors"
+                      />
+                    </div>
+                    <p className="text-[10px] text-white/30 italic">Format: +212 suivi de 9 chiffres (ex: 699214728)</p>
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-white/60">Adresse</label>

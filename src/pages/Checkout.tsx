@@ -65,11 +65,13 @@ export function Checkout() {
       const { data: orderParams, error: orderError } = await supabase
         .from('orders')
         .insert({
-          user_id: user?.id || null, // Allow guest orders if user is null
+          user_id: user?.id || null,
           total_amount: total,
-          shipping_address: shippingData,
-          payment_method: 'Paiement à la livraison', // Simplified for this demo
-          status: 'nouveau'
+          shipping_address: `${shippingData.firstName} ${shippingData.lastName}, ${shippingData.address}`,
+          shipping_city: shippingData.city,
+          phone: shippingData.phone,
+          payment_method: 'cash',
+          status: 'pending'
         })
         .select('id')
         .single();
@@ -80,6 +82,7 @@ export function Checkout() {
       const orderItems = items.map(item => ({
         order_id: orderParams.id,
         product_id: item.product_id,
+        product_name: item.product_name,
         quantity: item.quantity,
         unit_price: item.unit_price,
         size: item.size,
@@ -182,9 +185,25 @@ export function Checkout() {
 
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-white/70">Téléphone</label>
-                      <input required type="tel"
-                        value={shippingData.phone} onChange={(e) => setShippingData({ ...shippingData, phone: e.target.value })}
-                        className="w-full bg-[#181818] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#D4AF37] transition-colors" />
+                      <div className="flex">
+                        <div className="bg-[#222] border border-r-0 border-white/10 rounded-l-xl px-4 py-3 text-white/50 flex items-center text-sm font-mono">
+                          +212
+                        </div>
+                        <input
+                          required
+                          type="tel"
+                          pattern="[0-9]{9}"
+                          maxLength={9}
+                          placeholder="612345678"
+                          value={shippingData.phone.replace('+212', '')}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/\D/g, '').slice(0, 9);
+                            setShippingData({ ...shippingData, phone: val ? `+212${val}` : '' });
+                          }}
+                          className="flex-1 bg-[#181818] border border-white/10 rounded-r-xl px-4 py-3 text-white focus:outline-none focus:border-[#D4AF37] transition-colors"
+                        />
+                      </div>
+                      <p className="text-[10px] text-white/30 italic">Entrez les 9 chiffres après le +212 (ex: 699214728)</p>
                     </div>
 
                     <div className="space-y-2">
@@ -281,7 +300,7 @@ export function Checkout() {
                       <div className="absolute inset-0" style={{ backgroundColor: item.color }} />
                       {item.design_data.decals && item.design_data.decals.length > 0 && (
                         <div className="absolute inset-0 flex items-center justify-center">
-                          <img src={item.design_data.decals[0]?.imageBase64} className="w-8 h-8 object-contain" alt="Design" />
+                          <img src={item.design_data.decals[0]?.imageUrl} className="w-8 h-8 object-contain" alt="Design" />
                         </div>
                       )}
                     </div>

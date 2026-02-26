@@ -4,18 +4,20 @@ import { motion } from 'motion/react';
 import { ShoppingCart, User, Menu, LogOut, Shield } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
+import { useSiteSettings } from '../../hooks/useSiteSettings';
 
 export function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, profile, isAdmin, signOut } = useAuth();
   const { totalItems } = useCart();
+  const { value: navSettings } = useSiteSettings('navbar');
 
   const links = [
     { name: 'Accueil', path: '/' },
     { name: 'Studio 3D', path: '/studio' },
-    { name: 'T-Shirts', path: '/explore?category=tshirts' },
-    { name: 'Hoodies', path: '/explore?category=hoodies' },
+    { name: 'T-Shirts', path: '/explore?category=tshirt' },
+    { name: 'Hoodies', path: '/explore?category=hoodie' },
   ];
 
   const handleLogout = async () => {
@@ -27,7 +29,8 @@ export function Navbar() {
     <nav className="fixed top-0 left-0 right-0 z-50 bg-[#0F0F0F]/80 backdrop-blur-md border-b border-white/10">
       <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
         <Link to="/" className="text-2xl font-bold tracking-tighter text-white">
-          BOCHARWIT<span className="text-[#D4AF37]">.</span>
+          {navSettings?.logo_text || 'BOCHARWIT'}
+          <span style={{ color: navSettings?.logo_color || '#D4AF37' }}>.</span>
         </Link>
 
         <div className="hidden md:flex items-center gap-8">

@@ -400,14 +400,17 @@ export function ShirtModel({
 // ╔════════════════════════════════════════════════════════════════════════════╗
 // ║  STUDIO LIGHTS                                                              ║
 // ╚════════════════════════════════════════════════════════════════════════════╝
-export function StudioLights() {
+export function StudioLights({ studioMode = false }: { studioMode?: boolean }) {
+  const intensityMult = studioMode ? 2.2 : 1.0;
+  const ambientIntensity = studioMode ? 1.0 : 0.6;
+
   return (
     <>
-      <ambientLight intensity={0.6} color="#ffffff" />
-      <directionalLight position={[2, 8, 5]} intensity={1.2} color="#ffffff" castShadow />
-      <directionalLight position={[-5, 4, 4]} intensity={0.6} color="#ffffff" />
-      <directionalLight position={[0, 4, -6]} intensity={0.5} color="#ffffff" />
-      <directionalLight position={[0, -8, 0]} intensity={0.3} color="#ffffff" />
+      <ambientLight intensity={ambientIntensity} color="#ffffff" />
+      <directionalLight position={[2, 8, 5]} intensity={1.2 * intensityMult} color="#ffffff" castShadow />
+      <directionalLight position={[-5, 4, 4]} intensity={0.6 * intensityMult} color="#ffffff" />
+      <directionalLight position={[0, 4, -6]} intensity={0.5 * intensityMult} color="#ffffff" />
+      <directionalLight position={[0, -8, 0]} intensity={0.3 * intensityMult} color="#ffffff" />
     </>
   );
 }

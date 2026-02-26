@@ -39,7 +39,7 @@ export function Register() {
       setLoading(false);
     } else {
       setSuccess('Compte créé ! Vérifiez votre email pour confirmer votre inscription.');
-      setTimeout(() => navigate('/login'), 3000);
+      setTimeout(() => navigate('/login'), 1000);
     }
   };
 

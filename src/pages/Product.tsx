@@ -5,9 +5,6 @@ import { ShoppingBag, Heart, Share2, Star, Check, Truck, RotateCcw } from 'lucid
 import { Button } from '../components/ui/Button';
 import { useProduct } from '../hooks/useProducts';
 import { useCart } from '../context/CartContext';
-import { Canvas } from '@react-three/fiber';
-import { OrbitControls } from '@react-three/drei';
-import { ShirtModel, StudioLights } from '../components/3d/ShirtModel';
 
 const SIZES = ['S', 'M', 'L', 'XL', 'XXL'];
 const COLORS = [
@@ -27,6 +24,25 @@ export function Product() {
   const [activeSize, setActiveSize] = useState('L');
   const [activeColor, setActiveColor] = useState(COLORS[0].value);
   const [quantity, setQuantity] = useState(1);
+  const [isFavorite, setIsFavorite] = useState(false);
+
+  const handleShare = async () => {
+    if (!product) return;
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: product.name,
+          text: product.description,
+          url: window.location.href,
+        });
+      } else {
+        await navigator.clipboard.writeText(window.location.href);
+        alert('Lien copié dans le presse-papier !');
+      }
+    } catch (err) {
+      console.error('Erreur lors du partage:', err);
+    }
+  };
 
 
 
@@ -78,40 +94,27 @@ export function Product() {
         <div className="flex flex-col lg:flex-row gap-16">
           {/* Left - 3D Viewer & Images */}
           <div className="w-full lg:w-1/2 flex flex-col gap-4">
-            <div className="aspect-[4/5] rounded-3xl overflow-hidden bg-[#181818] relative group flex flex-col items-center justify-center">
-              <div className="absolute inset-x-0 top-0 h-full w-full">
-                <Canvas
-                  shadows
-                  gl={{ preserveDrawingBuffer: true }}
-                  camera={{ fov: 25, position: [0, 2, 8] }}
-                >
-                  <StudioLights />
-                  <Suspense fallback={null}>
-                    <ShirtModel color={activeColor} autoRotate />
-                  </Suspense>
-                  <OrbitControls
-                    enablePan={false}
-                    minPolarAngle={Math.PI / 4}
-                    maxPolarAngle={Math.PI / 1.5}
-                    minDistance={4}
-                    maxDistance={12}
-                  />
-                </Canvas>
-              </div>
-
+            <div className="aspect-[4/5] rounded-3xl overflow-hidden bg-[#181818] relative group">
+              <img
+                src={product.image_url}
+                alt={product.name}
+                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                referrerPolicy="no-referrer"
+              />
               <div className="absolute top-4 right-4 flex flex-col gap-2 z-10">
-                <button className="w-12 h-12 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center hover:bg-[#E63946] hover:text-white transition-colors text-white border border-white/10">
-                  <Heart className="w-6 h-6" />
+                <button
+                  onClick={() => setIsFavorite(!isFavorite)}
+                  className={`w-12 h-12 rounded-full backdrop-blur-md flex items-center justify-center transition-all border border-white/10 ${isFavorite ? 'bg-[#E63946] text-white shadow-[0_0_15px_rgba(230,57,70,0.5)]' : 'bg-black/40 text-white hover:bg-white/20'
+                    }`}
+                >
+                  <Heart className={`w-6 h-6 ${isFavorite ? 'fill-current' : ''}`} />
                 </button>
-                <button className="w-12 h-12 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center hover:bg-white hover:text-black transition-colors text-white border border-white/10">
+                <button
+                  onClick={handleShare}
+                  className="w-12 h-12 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center hover:bg-white hover:text-black transition-all text-white border border-white/10"
+                >
                   <Share2 className="w-6 h-6" />
                 </button>
-              </div>
-
-              <div className="absolute bottom-6 inset-x-0 flex justify-center z-10">
-                <div className="bg-black/40 backdrop-blur-md px-4 py-2 rounded-full text-xs text-white/70 border border-white/10">
-                  Prévisualisation 3D interactive — Glissez pour tourner
-                </div>
               </div>
             </div>
           </div>

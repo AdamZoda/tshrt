@@ -48,11 +48,86 @@ export function OrderPreviewModal({ order, onClose }: OrderPreviewModalProps) {
                             <p className="text-sm text-white/50">{new Date(order.created_at).toLocaleString()}</p>
 
                             <div className="mt-4 p-4 bg-[#181818] rounded-xl border border-white/5 space-y-2 text-sm">
-                                <p><span className="text-white/50">Client:</span> {order.profiles?.first_name} {order.profiles?.last_name || order.shipping_address?.firstName}</p>
+                                <p><span className="text-white/50">Statut:</span>
+                                    <span className={`ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${order.status === 'pending' ? 'bg-purple-500/10 text-purple-400' :
+                                        order.status === 'confirmed' ? 'bg-[#D4AF37]/10 text-[#D4AF37]' :
+                                            order.status === 'pressing' ? 'bg-blue-500/10 text-blue-400' :
+                                                order.status === 'shipped' ? 'bg-orange-500/10 text-orange-400' :
+                                                    order.status === 'delivered' ? 'bg-green-500/10 text-green-400' :
+                                                        order.status === 'refused' ? 'bg-red-500/10 text-red-400' :
+                                                            'bg-white/10 text-white'
+                                        }`}>
+                                        {order.status === 'pending' ? 'Nouveau' :
+                                            order.status === 'confirmed' ? 'Confirmé' :
+                                                order.status === 'pressing' ? 'En préparation' :
+                                                    order.status === 'shipped' ? 'Expédié' :
+                                                        order.status === 'delivered' ? 'Livré' :
+                                                            order.status === 'refused' ? 'Refusée' :
+                                                                order.status === 'cancelled' ? 'Annulée' : order.status}
+                                    </span>
+                                </p>
+                                <p><span className="text-white/50">Client:</span> {order.profiles?.first_name ? `${order.profiles.first_name} ${order.profiles.last_name || ''}` : (typeof order.shipping_address === 'string' ? order.shipping_address.split(',')[0] : order.shipping_address?.firstName)}</p>
                                 <p><span className="text-white/50">Email:</span> {order.profiles?.email || order.shipping_address?.email}</p>
-                                <p><span className="text-white/50">Téléphone:</span> {order.profiles?.phone || order.shipping_address?.phone}</p>
-                                <p><span className="text-white/50">Adresse:</span> {order.shipping_address?.address}, {order.shipping_address?.city}</p>
+                                <p><span className="text-white/50">Téléphone:</span> {order.phone || order.profiles?.phone || order.shipping_address?.phone}</p>
+                                <p><span className="text-white/50">Adresse:</span> {typeof order.shipping_address === 'string' ? order.shipping_address : `${order.shipping_address?.address}, ${order.shipping_address?.city}`}</p>
                             </div>
+                        </div>
+
+                        {/* Status Stepper in Modal */}
+                        <div className="px-6 py-6 border-b border-white/10 bg-[#111]">
+                            {['cancelled', 'refused'].includes(order.status) ? (
+                                <div className="flex items-center gap-3 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500">
+                                    <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
+                                        <X className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <p className="font-bold">Commande {order.status === 'refused' ? 'Refusée' : 'Annulée'}</p>
+                                        <p className="text-xs opacity-80">
+                                            {order.status === 'refused'
+                                                ? "Refusée par l'administration."
+                                                : "Annulée par l'administration."}
+                                        </p>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="flex justify-between relative px-2">
+                                    <div className="absolute top-1.5 left-0 w-full h-0.5 bg-white/5 z-0" />
+                                    <div
+                                        className="absolute top-1.5 left-0 h-0.5 bg-[#D4AF37] z-0 transition-all duration-1000"
+                                        style={{
+                                            width: order.status === 'pending' ? '0%' :
+                                                order.status === 'confirmed' ? '25%' :
+                                                    order.status === 'pressing' ? '50%' :
+                                                        order.status === 'shipped' ? '75%' :
+                                                            order.status === 'delivered' ? '100%' : '0%'
+                                        }}
+                                    />
+
+                                    {[
+                                        { key: 'pending', label: 'Nouveau' },
+                                        { key: 'confirmed', label: 'Confirmé' },
+                                        { key: 'pressing', label: 'Préparation' },
+                                        { key: 'shipped', label: 'Expédié' },
+                                        { key: 'delivered', label: 'Livré' }
+                                    ].map((s, idx) => {
+                                        const statuses = ['pending', 'confirmed', 'pressing', 'shipped', 'delivered'];
+                                        const currentIdx = statuses.indexOf(order.status);
+                                        const isCompleted = currentIdx >= idx;
+                                        const isCurrent = currentIdx === idx;
+
+                                        return (
+                                            <div key={s.key} className="relative z-10 flex flex-col items-center gap-2">
+                                                <div className={`w-3 h-3 rounded-full transition-all duration-500 ${isCompleted ? 'bg-[#D4AF37] scale-125 shadow-[0_0_10px_#D4AF37]' : 'bg-[#222] border border-white/10'
+                                                    }`} />
+                                                <span className={`text-[9px] font-bold transition-colors ${isCurrent ? 'text-[#D4AF37]' : isCompleted ? 'text-white/60' : 'text-white/20'
+                                                    }`}>
+                                                    {s.label}
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </div>
 
                         <div className="p-6 flex-1">

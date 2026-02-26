@@ -85,3 +85,29 @@ export function useAdminOrders() {
 
     return { orders, loading, updateOrderStatus, refetch: fetchOrders };
 }
+export function useAdminUsers() {
+    const [users, setUsers] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    const fetchUsers = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+            setUsers(data || []);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchUsers();
+    }, []);
+
+    return { users, loading, refetch: fetchUsers };
+}
